@@ -63,8 +63,8 @@ sub-directory.
    The configure script defaults to a `/usr/local` prefix.
 
 ```bash
-$ tar xf editline-2.0.0.tar.gz
-$ cd editline-2.0.0/
+$ tar xf editline-2.1.0.tar.gz
+$ cd editline-2.1.0/
 $ ./configure --prefix=/usr
 $ make all
 $ sudo make install

@@ -3,8 +3,8 @@ Change Log
 
 All notable changes to the project are documented in this file.
 
-[2.1.0][UNRELEASED]
--------------------
+[2.1.0][] - 2026-07-04
+----------------------
 
 ### Changes
 - Raise the default history size (`el_hist_size`) from 15 to 64

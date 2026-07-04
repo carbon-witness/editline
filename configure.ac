@@ -1,4 +1,4 @@
-AC_INIT(editline, 2.1.0-pre, https://github.com/troglobit/editline/issues)
+AC_INIT(editline, 2.1.0, https://github.com/troglobit/editline/issues)
 AC_CONFIG_AUX_DIR(aux)
 AM_INIT_AUTOMAKE([1.11 foreign])
 AM_SILENT_RULES([yes])
