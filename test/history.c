@@ -1,9 +1,11 @@
 /* History file round-trip.  read_history()/write_history() must preserve
- * every entry byte-for-byte:
+ * every entry byte-for-byte across a range of history sizes:
  *   - lines of any length (a fixed read buffer used to split long lines and
- *     chop a byte mid-glyph for multibyte input), and
+ *     chop a byte mid-glyph for multibyte input),
  *   - a file filled to capacity -- issue #78 dropped the most recent entry
- *     because read_history() read one fewer than write_history() wrote.
+ *     because read_history() read one fewer than write_history() wrote, and
+ *   - a runtime change to el_hist_size, which now (re)sizes the scrollback
+ *     buffer (grow or shrink) instead of overflowing a fixed allocation.
  */
 #include <config.h>
 #include <stdio.h>
@@ -40,20 +42,21 @@ static int files_equal(const char *a, const char *b)
 	return eq;
 }
 
-int main(void)
+/* Fill a file to capacity for the given history size (one entry more than
+ * el_hist_size, the most write_history() emits), with distinct lines and one
+ * 300-byte multibyte line, then require a byte-identical round-trip.
+ * Returns 1 on pass, 0 on failure, -1 to skip. */
+static int roundtrip(int hsize)
 {
-	int i, n, fail = 0;
 	FILE *fp;
+	int i, n, ok;
 
-	/* Fill the file to capacity -- el_hist_size + 1 entries, the most
-	 * write_history() ever emits -- with distinct lines, one of them a
-	 * 300-byte multibyte line (150x "é"). */
+	el_hist_size = hsize;
 	n = el_hist_size + 1;
+
 	fp = fopen(IN, "w");
-	if (!fp) {
-		perror(IN);
-		return 77;		/* SKIP: cannot create scratch file */
-	}
+	if (!fp)
+		return -1;		/* SKIP: cannot create scratch file */
 	for (i = 0; i < n; i++) {
 		if (i == n / 2) {
 			int k;
@@ -69,16 +72,36 @@ int main(void)
 
 	read_history(IN);
 	write_history(OUT);
-
-	if (!files_equal(IN, OUT)) {
-		fprintf(stderr, "FAIL history-roundtrip  %d-entry file not preserved (issue #78 / long line)\n", n);
-		fail++;
-	} else {
-		printf("PASS history-roundtrip  [%d entries, byte-for-byte]\n", n);
-	}
+	ok = files_equal(IN, OUT);
 
 	unlink(IN);
 	unlink(OUT);
-	printf("\nhistory: 1 tests, %d failures\n", fail);
+
+	return ok;
+}
+
+int main(void)
+{
+	/* Default, then shrink, then grow -- exercises the buffer realloc as
+	 * well as the fill-to-capacity and long-line cases. */
+	int sizes[] = { 64, 8, 200 };
+	size_t i, n = sizeof(sizes) / sizeof(sizes[0]);
+	int fail = 0;
+
+	for (i = 0; i < n; i++) {
+		int rc = roundtrip(sizes[i]);
+
+		if (rc < 0)
+			return 77;	/* SKIP */
+		if (rc) {
+			printf("PASS history-roundtrip  [%d entries]\n", sizes[i] + 1);
+		} else {
+			fprintf(stderr, "FAIL history-roundtrip  %d-entry file not preserved\n",
+				sizes[i] + 1);
+			fail++;
+		}
+	}
+
+	printf("\nhistory: %zu tests, %d failures\n", n, fail);
 	return fail ? 1 : 0;
 }
