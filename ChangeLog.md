@@ -3,6 +3,15 @@ Change Log
 
 All notable changes to the project are documented in this file.
 
+[UNRELEASED][]
+--------------
+
+### Fixes
+- Fix #78: the most recent entry was dropped when reloading a full
+  history file; `read_history()` now reads as many entries as
+  `write_history()` writes
+
+
 [2.0.0][] - 2026-06-22
 ----------------------
 

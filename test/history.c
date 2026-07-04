@@ -1,6 +1,10 @@
-/* History file round-trip: read_history()/write_history() must preserve
- * lines of any length byte-for-byte.  A fixed read buffer used to split
- * long lines (and chop a byte mid-glyph for multibyte input). */
+/* History file round-trip.  read_history()/write_history() must preserve
+ * every entry byte-for-byte:
+ *   - lines of any length (a fixed read buffer used to split long lines and
+ *     chop a byte mid-glyph for multibyte input), and
+ *   - a file filled to capacity -- issue #78 dropped the most recent entry
+ *     because read_history() read one fewer than write_history() wrote.
+ */
 #include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,31 +42,39 @@ static int files_equal(const char *a, const char *b)
 
 int main(void)
 {
+	int i, n, fail = 0;
 	FILE *fp;
-	int i, fail = 0;
 
-	/* A short ASCII line, a 300-byte line (150x "é") that exceeds the old
-	 * 256-byte read buffer and would split mid-glyph, and another line. */
+	/* Fill the file to capacity -- el_hist_size + 1 entries, the most
+	 * write_history() ever emits -- with distinct lines, one of them a
+	 * 300-byte multibyte line (150x "é"). */
+	n = el_hist_size + 1;
 	fp = fopen(IN, "w");
 	if (!fp) {
 		perror(IN);
 		return 77;		/* SKIP: cannot create scratch file */
 	}
-	fputs("short ascii line\n", fp);
-	for (i = 0; i < 150; i++)
-		fputs("\303\251", fp);
-	fputc('\n', fp);
-	fputs("trailing line\n", fp);
+	for (i = 0; i < n; i++) {
+		if (i == n / 2) {
+			int k;
+
+			for (k = 0; k < 150; k++)
+				fputs("\303\251", fp);
+			fputc('\n', fp);
+		} else {
+			fprintf(fp, "history entry %d\n", i);
+		}
+	}
 	fclose(fp);
 
 	read_history(IN);
 	write_history(OUT);
 
 	if (!files_equal(IN, OUT)) {
-		fprintf(stderr, "FAIL history-roundtrip  history file corrupted on round-trip\n");
+		fprintf(stderr, "FAIL history-roundtrip  %d-entry file not preserved (issue #78 / long line)\n", n);
 		fail++;
 	} else {
-		printf("PASS history-roundtrip  [byte-for-byte]\n");
+		printf("PASS history-roundtrip  [%d entries, byte-for-byte]\n", n);
 	}
 
 	unlink(IN);

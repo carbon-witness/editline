@@ -1802,7 +1802,10 @@ int read_history(const char *filename)
 	return EOF;
 
     H.Size = 0;
-    while (H.Size < el_hist_size && (line = read_line(fp)) != NULL) {
+    /* The scrollback holds el_hist_size + 1 entries (see hist_alloc(),
+     * hist_add(), write_history()); read the same, or the most recent
+     * entry is dropped on reload. */
+    while (H.Size <= el_hist_size && (line = read_line(fp)) != NULL) {
 	add_history(line);
 	free(line);
     }
